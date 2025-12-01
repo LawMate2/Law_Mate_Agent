@@ -1,9 +1,10 @@
-"""HTTP 서버 (포트 8000)로 Gmail/Calendar/Drive 작업을 받는 엔드포인트."""
+"""HTTP 서버 (포트 8001)로 Gmail/Calendar/Drive 작업을 받는 엔드포인트."""
 import asyncio
 from datetime import datetime
 import base64
 import tempfile
 import os
+from pathlib import Path
 from typing import Any, Dict, Literal, Optional
 from uuid import uuid4
 
@@ -11,6 +12,15 @@ from aiohttp import web
 from pydantic import BaseModel, Field, ValidationError
 
 from src.auth import GoogleAuthManager
+
+
+# CORS 설정
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+]
 from src.google_services.calendar_service import CalendarEvent, CalendarService
 from src.google_services.drive_service import DriveService
 from src.google_services.gmail_service import EmailMessage, GmailService
@@ -145,6 +155,35 @@ def _validate_required(payload: Dict[str, Any], fields: list[str], section: str)
         )
 
 
+@web.middleware
+async def cors_middleware(request: web.Request, handler):
+    """CORS 헤더를 추가하는 미들웨어."""
+    # OPTIONS 요청 처리 (preflight)
+    if request.method == "OPTIONS":
+        origin = request.headers.get("Origin", "")
+        if origin in ALLOWED_ORIGINS:
+            return web.Response(
+                status=200,
+                headers={
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+                    "Access-Control-Max-Age": "3600",
+                },
+            )
+        return web.Response(status=403)
+
+    # 실제 요청 처리
+    response = await handler(request)
+    origin = request.headers.get("Origin", "")
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+
+    return response
+
+
 async def handle_task(request: web.Request) -> web.Response:
     """POST /tasks 엔드포인트."""
     try:
@@ -188,7 +227,7 @@ async def handle_task(request: web.Request) -> web.Response:
 
 def create_app() -> web.Application:
     """AIOHTTP 애플리케이션 생성."""
-    app = web.Application()
+    app = web.Application(middlewares=[cors_middleware])
     app["router"] = GoogleTaskRouter()
     app.router.add_post("/tasks", handle_task)
     app.router.add_get("/health", lambda _: web.json_response({"status": "ok"}))
@@ -197,7 +236,8 @@ def create_app() -> web.Application:
 
 def main():
     app = create_app()
-    web.run_app(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("MCP_HTTP_PORT", "8001"))
+    web.run_app(app, host="0.0.0.0", port=port)
 
 
 if __name__ == "__main__":

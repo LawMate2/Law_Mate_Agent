@@ -1,0 +1,14 @@
+version: "3.8"
+
+services:
+  mcp:
+    build:
+      context: .
+    container_name: google-services-mcp
+    env_file:
+      - .env
+    ports:
+      - "8100:8000"
+    volumes:
+      - ./config:/app/config
+    command: python -m src.http_server

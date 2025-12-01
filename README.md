@@ -111,9 +111,36 @@ python -m src.mcp_server
          "summary": "회의",
          "start": { "dateTime": "2024-12-01T14:00:00+09:00" },
          "end": { "dateTime": "2024-12-01T15:00:00+09:00" },
-         "html_link": "https://..."
-       }
-     }
+        "html_link": "https://..."
+      }
+    }
+    ```
+
+### Docker로 실행
+
+1. 사전 준비  
+   - `config/credentials.json`을 호스트에 준비합니다.  
+   - `.env` 파일에 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`을 설정합니다.
+2. 이미지 빌드  
+   ```bash
+   docker build -t google-services-mcp .
+   ```
+3. 컨테이너 실행 (HTTP 서버)  
+   ```bash
+   docker run --rm -it \
+     -p 8000:8000 \
+     --env-file .env \
+     -v "$(pwd)/config:/app/config" \
+     google-services-mcp
+   ```
+   - `config` 볼륨을 마운트하면 OAuth 토큰(`config/token.json`)이 컨테이너 재시작 후에도 유지됩니다.  
+   - 최초 인증이 필요하면 브라우저 인증을 위해 한 번 MCP 서버를 띄울 수 있습니다:  
+     ```bash
+     docker run --rm -it \
+       --env-file .env \
+       -p 8080:8080 \
+       -v "$(pwd)/config:/app/config" \
+       google-services-mcp python -m src.mcp_server
      ```
 
 ### 도구 사용 예제
