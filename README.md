@@ -65,6 +65,57 @@ GOOGLE_CLIENT_SECRET=your_client_secret
 python -m src.mcp_server
 ```
 
+### HTTP 서버 (포트 8000)로 요청 받기
+
+1. 환경 변수/토큰 준비  
+   - `config/credentials.json` 배치 후 한 번 `python -m src.mcp_server`를 실행하거나, 토큰이 없다면 최초 요청 시 브라우저 인증이 열립니다.  
+   - 생성된 `config/token.json`은 재사용되므로 이후에는 로그인 단계 없이 동작합니다.
+2. 서버 실행  
+   ```bash
+   python -m src.http_server
+   # 또는
+   python src/http_server.py
+   ```
+3. 요청 보내기 (`POST /tasks`)  
+   ```bash
+   curl -X POST http://localhost:8000/tasks \
+     -H "Content-Type: application/json" \
+     -d '{
+       "request_id": "req-123",
+       "type": "email",
+       "timezone": "Asia/Seoul",
+       "payload": {
+         "to": "user@example.com",
+         "subject": "테스트 메일",
+         "body": "본문",
+         "cc": [],
+         "bcc": [],
+         "html": false,
+         "attachments": []
+       }
+     }'
+   ```
+   - `type`에 따라 필요한 필드가 다릅니다.  
+     - `email`: `to`, `subject`, `body` 필수, 선택 `cc`, `bcc`, `html`, `attachments`(로컬 경로 배열)  
+     - `calendar`: `summary`, `start_time`, `end_time`(ISO 8601) 필수, 선택 `description`, `location`, `attendees`, `reminders`(분 단위), `all_day`, `timezone`  
+     - `drive`: `file_path`, `contract_name` 필수, 선택 `contract_date`, `parties`, `folder_name`
+   - 응답 예시  
+     ```json
+     {
+       "success": true,
+       "request_id": "req-123",
+       "type": "calendar",
+       "result": {
+         "success": true,
+         "event_id": "...",
+         "summary": "회의",
+         "start": { "dateTime": "2024-12-01T14:00:00+09:00" },
+         "end": { "dateTime": "2024-12-01T15:00:00+09:00" },
+         "html_link": "https://..."
+       }
+     }
+     ```
+
 ### 도구 사용 예제
 
 #### 1. 이메일 발송
